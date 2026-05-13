@@ -1,9 +1,24 @@
 "use client";
-import { useState } from "react";
 
-export default function FileUpload({ resumeFile, setResumeFile, resumeText, setResumeText }) {
-  const [mode, setMode] = useState("upload"); // "upload" | "paste"
+import { useState, useRef, useEffect } from "react";
+
+export default function FileUpload({
+  resumeFile,
+  setResumeFile,
+  resumeText,
+  setResumeText,
+}) {
   const [dragOver, setDragOver] = useState(false);
+
+  // Auto-switch to correct tab based on restored state
+  const [mode, setMode] = useState("upload");
+  useEffect(() => {
+    if (resumeText) setMode("paste");
+    else if (resumeFile) setMode("upload");
+  }, [resumeFile, resumeText]);
+
+  // useRef fixes the broken file picker button — no more getElementById
+  const fileInputRef = useRef(null);
 
   const handleFile = (file) => {
     if (file && file.type === "application/pdf") {
@@ -15,8 +30,7 @@ export default function FileUpload({ resumeFile, setResumeFile, resumeText, setR
   const handleDrop = (e) => {
     e.preventDefault();
     setDragOver(false);
-    const file = e.dataTransfer.files[0];
-    handleFile(file);
+    handleFile(e.dataTransfer.files[0]);
   };
 
   return (
@@ -45,7 +59,7 @@ export default function FileUpload({ resumeFile, setResumeFile, resumeText, setR
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
-          onClick={() => document.getElementById("resumeInput").click()}
+          onClick={() => fileInputRef.current?.click()}
           className={`relative border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all ${
             dragOver
               ? "border-[#00ff88] bg-[#00ff88]/5"
@@ -54,23 +68,32 @@ export default function FileUpload({ resumeFile, setResumeFile, resumeText, setR
               : "border-white/10 hover:border-white/30"
           }`}
         >
+          {/* Hidden file input — triggered by useRef, not getElementById */}
           <input
-            id="resumeInput"
+            ref={fileInputRef}
             type="file"
             accept=".pdf"
             className="hidden"
             onChange={(e) => handleFile(e.target.files[0])}
           />
+
           {resumeFile ? (
             <div className="space-y-2">
               <div className="text-3xl">📄</div>
-              <p className="text-[#00ff88] font-bold font-mono text-sm">{resumeFile.name}</p>
-              <p className="text-white/30 text-xs">{(resumeFile.size / 1024).toFixed(1)} KB · PDF</p>
+              <p className="text-[#00ff88] font-bold font-mono text-sm">
+                {resumeFile.name}
+              </p>
+              <p className="text-white/30 text-xs">
+                {(resumeFile.size / 1024).toFixed(1)} KB · PDF
+              </p>
               <button
-                onClick={(e) => { e.stopPropagation(); setResumeFile(null); }}
-                className="text-red-400/60 hover:text-red-400 text-xs font-mono mt-2 block"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setResumeFile(null);
+                }}
+                className="text-red-400/60 hover:text-red-400 text-xs font-mono mt-2 block mx-auto"
               >
-                Remove
+                ✕ Remove — upload a different resume
               </button>
             </div>
           ) : (
@@ -84,7 +107,10 @@ export default function FileUpload({ resumeFile, setResumeFile, resumeText, setR
       ) : (
         <textarea
           value={resumeText}
-          onChange={(e) => { setResumeText(e.target.value); setResumeFile(null); }}
+          onChange={(e) => {
+            setResumeText(e.target.value);
+            setResumeFile(null);
+          }}
           placeholder="Paste your resume text here..."
           rows={12}
           className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white/80 text-sm font-mono placeholder-white/20 resize-none focus:outline-none focus:border-[#00ff88]/50 transition-colors leading-relaxed"
