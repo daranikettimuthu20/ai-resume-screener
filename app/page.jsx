@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import FileUpload from "@/components/FileUpload";
 import JobDescriptionInput from "@/components/JobDescriptionInput";
@@ -12,6 +13,60 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+
+  // ── Restore saved resume from sessionStorage on page load ──
+  useEffect(() => {
+    const savedText     = sessionStorage.getItem("resumeText");
+    const savedFileName = sessionStorage.getItem("resumeFileName");
+    const savedFileData = sessionStorage.getItem("resumeFileData");
+
+    if (savedText) {
+      setResumeText(savedText);
+    }
+
+    if (savedFileName && savedFileData) {
+      try {
+        const base64Data = savedFileData.split(",")[1];
+        const byteString = atob(base64Data);
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) {
+          ia[i] = byteString.charCodeAt(i);
+        }
+        const blob = new Blob([ab], { type: "application/pdf" });
+        const file = new File([blob], savedFileName, { type: "application/pdf" });
+        setResumeFile(file);
+      } catch {
+        sessionStorage.removeItem("resumeFileName");
+        sessionStorage.removeItem("resumeFileData");
+      }
+    }
+  }, []);
+
+  // ── Save resumeText to sessionStorage whenever it changes ──
+  useEffect(() => {
+    if (resumeText) {
+      sessionStorage.setItem("resumeText", resumeText);
+    } else {
+      sessionStorage.removeItem("resumeText");
+    }
+  }, [resumeText]);
+
+  // ── Called by FileUpload when a file is picked or removed ──
+  const handleFileChange = (file) => {
+    setResumeFile(file);
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        sessionStorage.setItem("resumeFileName", file.name);
+        sessionStorage.setItem("resumeFileData", e.target.result);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      sessionStorage.removeItem("resumeFileName");
+      sessionStorage.removeItem("resumeFileData");
+    }
+  };
 
   const handleSubmit = async () => {
     if (!jobDescription.trim()) {
@@ -64,13 +119,11 @@ export default function Home() {
         <div className="absolute inset-0 bg-gradient-to-br from-[#0d0d1a] via-[#0a0a0f] to-[#0a0f0d] z-0" />
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#00ff88]/5 rounded-full blur-3xl" />
         <div className="absolute top-20 right-1/4 w-64 h-64 bg-[#00aaff]/5 rounded-full blur-3xl" />
-
         <div className="relative z-10 max-w-5xl mx-auto px-6 pt-16 pb-8">
           <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 mb-8 text-xs text-[#00ff88] font-mono tracking-widest uppercase">
             <span className="w-1.5 h-1.5 bg-[#00ff88] rounded-full animate-pulse" />
             AI-Powered · ATS Optimized · Claude 3
           </div>
-
           <h1 className="text-5xl md:text-7xl font-black leading-none mb-4 tracking-tight">
             <span className="text-white">Resume</span>
             <br />
@@ -78,9 +131,10 @@ export default function Home() {
               Screener
             </span>
           </h1>
-
           <p className="text-white/50 text-lg max-w-xl mt-4 leading-relaxed font-light">
-            Upload your resume. Paste a job description. Get your ATS score, missing skills, improved bullet points, and cybersecurity warnings — instantly.
+            Upload your resume. Paste a job description. Get your ATS score,
+            missing skills, improved bullet points, and cybersecurity warnings
+            — instantly.
           </p>
         </div>
       </div>
@@ -90,7 +144,7 @@ export default function Home() {
         <div className="grid md:grid-cols-2 gap-6">
           <FileUpload
             resumeFile={resumeFile}
-            setResumeFile={setResumeFile}
+            setResumeFile={handleFileChange}
             resumeText={resumeText}
             setResumeText={setResumeText}
           />
